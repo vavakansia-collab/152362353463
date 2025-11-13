@@ -1,11 +1,11 @@
 import sys
 import asyncio
 
-from DataBase.sqlite_db import sql_start
-from Handlers.errors import error_router
+from sqlite_db import sql_start
+from errors import error_router
 from createbot import *
-from Handlers.commands import commands_router
-from Handlers.inlinekeyboard import inline_kb_router
+from commands import commands_router
+from inlinekeyboard import inline_kb_router
 from loggers import main_logger
 
 
