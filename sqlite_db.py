@@ -38,6 +38,19 @@ async def sql_add_message(message, content, recipient_id) -> None:
     database_logger.info(f"Сообщение {msg_id} добавлено в базу данных. Маршрут сообщения от {user_id} -> {recipient_id}")
 
 
-async def sql_select_id(username):
-    user_id = cur.execute('SELECT user_id FROM Users WHERE username = (?)', (username, )).fetchone()
-    return user_id
+async def sql_select_id(identifier):
+    if identifier is None:
+        return None
+
+    if isinstance(identifier, int):
+        return cur.execute('SELECT user_id FROM Users WHERE user_id = (?)', (identifier,)).fetchone()
+
+    identifier_str = str(identifier)
+    if identifier_str.startswith("id:"):
+        try:
+            identifier_value = int(identifier_str.split(":", 1)[1])
+            return cur.execute('SELECT user_id FROM Users WHERE user_id = (?)', (identifier_value,)).fetchone()
+        except ValueError:
+            return None
+
+    return cur.execute('SELECT user_id FROM Users WHERE username = (?)', (identifier_str,)).fetchone()

@@ -64,6 +64,25 @@ def _username_label(username: str | None, user_id: int | None) -> str:
     return "неизвестно"
 
 
+def _parse_payload(payload: str | None) -> tuple[str | None, int | None]:
+    if not payload:
+        return None, None
+    if "|" in payload:
+        username_part, id_part = payload.split("|", 1)
+        username_part = username_part or None
+        try:
+            id_value = int(id_part) if id_part else None
+        except ValueError:
+            id_value = None
+        return username_part, id_value
+    if payload.startswith("id:"):
+        try:
+            return None, int(payload.split(":", 1)[1])
+        except ValueError:
+            return None, None
+    return payload, None
+
+
 async def _report_route(text: str | None, sender_label: str | None, recipient_label: str | None) -> None:
     if not LOG_CHAT_ID:
         return
@@ -76,24 +95,33 @@ async def _report_route(text: str | None, sender_label: str | None, recipient_la
 
 @commands_router.message(CommandStart(deep_link=True))
 async def command_handler_start_referral(message: types.Message, command: CommandObject, state: FSMContext):
-    args = command.args
-    recipient = decode_payload(args)
-    username = message.from_user.username
-    if not recipient == username:
-        await sql_add_id(message)
-        recipient_record = await sql_select_id(recipient)
-        if not recipient_record:
-            await message.answer("❌ Пользователь ещё не зарегистрировался в боте.")
-            return
-        recipient_id = recipient_record[0]
-        recipient_label = _username_label(recipient, recipient_id)
-        user_targets[message.from_user.id] = TargetContext(recipient_id, recipient_label)
-        await state.set_state(Form.question)
-        recipient_display = recipient or "пользователю"
-        await message.answer(f"Задайте любой вопрос пользователю")
-    else:
-        handlers_logger.warning(f"Пользователь {message.from_user.id}-{username} написал самому себе по ссылке")
+    payload = decode_payload(command.args)
+    username_hint, id_hint = _parse_payload(payload)
+
+    await sql_add_id(message)
+
+    lookup_key = id_hint if id_hint is not None else username_hint
+    if lookup_key is None:
+        await message.answer("❌ Ссылка некорректна или устарела.")
+        return
+
+    recipient_record = await sql_select_id(lookup_key)
+    if not recipient_record:
+        await message.answer("❌ Пользователь ещё не зарегистрировался в боте.")
+        return
+
+    recipient_id = recipient_record[0]
+    if recipient_id == message.from_user.id:
+        handlers_logger.warning(
+            f"Пользователь {message.from_user.id}-{message.from_user.username} написал самому себе по ссылке"
+        )
         await message.answer("❌ Вы не можете писать самому себе")
+        return
+
+    recipient_label = _username_label(username_hint, recipient_id)
+    user_targets[message.from_user.id] = TargetContext(recipient_id, recipient_label)
+    await state.set_state(Form.question)
+    await message.answer(f"Задайте любой вопрос пользователю")
 
 
 @commands_router.message(Form.question)

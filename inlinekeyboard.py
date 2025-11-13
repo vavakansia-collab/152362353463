@@ -11,7 +11,8 @@ inline_kb_router = Router()
 
 @inline_kb_router.callback_query(F.data == "make_link")
 async def make_link(callback: CallbackQuery) -> None:
-    link = await create_start_link(bot, callback.from_user.username, encode=True)
+    payload = f"{callback.from_user.username or ''}|{callback.from_user.id}"
+    link = await create_start_link(bot, payload, encode=True)
     await bot.send_photo(
         chat_id=callback.message.chat.id,
         photo=FSInputFile("question.png"),
