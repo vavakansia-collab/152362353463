@@ -6,6 +6,8 @@ from errors import error_router
 from createbot import *
 from admin import admin_router
 from commands import commands_router
+from inlinekeyboard import inline_kb_router
+from loggers import main_logger
 
 
 async def on_startup():
