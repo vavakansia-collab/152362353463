@@ -4,14 +4,14 @@ import asyncio
 from sqlite_db import sql_start
 from errors import error_router
 from createbot import *
+from admin import admin_router
 from commands import commands_router
-from inlinekeyboard import inline_kb_router
-from loggers import main_logger
 
 
 async def on_startup():
     main_logger.info('Бот вышел в онлайн.')
     sql_start()
+    dp.include_router(admin_router)
     dp.include_router(commands_router)
     dp.include_router(inline_kb_router)
     dp.include_router(error_router)

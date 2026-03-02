@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.payload import decode_payload
 
-from sqlite_db import sql_add_id, sql_select_id, sql_add_message
+from sqlite_db import sql_add_id, sql_select_id, sql_add_message, sql_is_blocked
 from inline_keyboards import kb_start, kb_ask_more
 from createbot import *
 from config import LOG_CHAT_ID
@@ -95,6 +95,9 @@ async def _report_route(text: str | None, sender_label: str | None, recipient_la
 
 @commands_router.message(CommandStart(deep_link=True))
 async def command_handler_start_referral(message: types.Message, command: CommandObject, state: FSMContext):
+    if await sql_is_blocked(message.from_user.id):
+        await message.answer("Вы заблокированы в боте")
+        return
     payload = decode_payload(command.args)
     username_hint, id_hint = _parse_payload(payload)
 
@@ -126,6 +129,10 @@ async def command_handler_start_referral(message: types.Message, command: Comman
 
 @commands_router.message(Form.question)
 async def process_question(message: types.Message, state: FSMContext):
+    if await sql_is_blocked(message.from_user.id):
+        await message.answer("Вы заблокированы в боте")
+        await state.clear()
+        return
     target = user_targets.get(message.from_user.id)
     if not target:
         await message.answer("❌ Ссылка устарела. Получите новую персональную ссылку для отправки вопроса.")
@@ -151,6 +158,9 @@ async def process_question(message: types.Message, state: FSMContext):
 
 @commands_router.message(F.reply_to_message)
 async def handle_reply(message: types.Message):
+    if await sql_is_blocked(message.from_user.id):
+        await message.answer("Вы заблокированы в боте")
+        return
     replied_msg = message.reply_to_message
     if replied_msg.from_user.id != (await message.bot.me()).id:
         return

@@ -12,11 +12,17 @@ def sql_start():
     if base:
         database_logger.info('База данных подключена')
 
-    base.execute('CREATE TABLE IF NOT EXISTS Users(user_id BINDING PRIMARY KEY, username TEXT, register_date DATETIME)')
+    base.execute('CREATE TABLE IF NOT EXISTS Users(user_id INTEGER PRIMARY KEY, username TEXT, register_date DATETIME, is_blocked INTEGER DEFAULT 0)')
     base.commit()
-    base.execute('CREATE TABLE IF NOT EXISTS Messages(message_id BINDING PRIMARY KEY, recipient BINDING, sender BINDING, content TEXT, register_date DATETIME)')
-    base.commit()
+    # Migration: add is_blocked if it doesn't exist (in case the table already exists)
+    try:
+        base.execute('ALTER TABLE Users ADD COLUMN is_blocked INTEGER DEFAULT 0')
+        base.commit()
+    except sq.OperationalError:
+        pass # Column already exists
 
+    base.execute('CREATE TABLE IF NOT EXISTS Messages(message_id INTEGER PRIMARY KEY, recipient INTEGER, sender INTEGER, content TEXT, register_date DATETIME)')
+    base.commit()
 
 
 async def sql_add_id(message) -> None:
@@ -54,3 +60,21 @@ async def sql_select_id(identifier):
             return None
 
     return cur.execute('SELECT user_id FROM Users WHERE username = (?)', (identifier_str,)).fetchone()
+
+
+async def sql_is_blocked(user_id: int) -> bool:
+    res = cur.execute('SELECT is_blocked FROM Users WHERE user_id = (?)', (user_id,)).fetchone()
+    return bool(res[0]) if res else False
+
+
+async def sql_set_block_status(user_id: int, status: int) -> None:
+    base.execute('UPDATE Users SET is_blocked = ? WHERE user_id = ?', (status, user_id))
+    base.commit()
+
+
+async def sql_get_all_users():
+    return cur.execute('SELECT user_id FROM Users').fetchall()
+
+
+async def sql_get_user_info(user_id: int):
+    return cur.execute('SELECT user_id, username, register_date, is_blocked FROM Users WHERE user_id = ?', (user_id,)).fetchone()
